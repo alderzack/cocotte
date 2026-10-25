@@ -1,10 +1,14 @@
 // Cocotte — cache hors ligne
-const CACHE = 'cocotte-v1';
+const CACHE = 'cocotte-v2';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './sons/poule.mp3',
+  './sons/minuteur-3.mp3',
+  './sons/minuteur-5.mp3',
+  './sons/minuteur-6.mp3',
+  './sons/minuteur-10.mp3',
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png'

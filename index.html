@@ -77,7 +77,18 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
 .fact h2{margin:0;font-size:15px;font-weight:800}
 .fact p{margin:0;font-size:15px;font-weight:600;line-height:1.35}
 
-.foot{margin-top:auto;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.foot{margin-top:auto;display:grid;grid-template-columns:1fr;gap:10px;align-items:center}
+.vol{background:var(--white);border:3px solid var(--ink);border-radius:20px;padding:10px 14px;display:flex;flex-direction:column;gap:4px}
+.vol-row{display:flex;align-items:center;gap:10px}
+.vol-label{font-size:15px;font-weight:800;flex:1}
+.vol output{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.vol-hint{margin:2px 0 0;font-size:13px;font-weight:600;color:var(--ink-soft)}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:44px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:14px;border:3px solid var(--ink);border-radius:999px;background:linear-gradient(to right,var(--sun) 0 var(--p,100%),var(--white) var(--p,100%))}
+input[type=range]::-moz-range-track{height:8px;border:3px solid var(--ink);border-radius:999px;background:var(--white)}
+input[type=range]::-moz-range-progress{height:8px;border-radius:999px;background:var(--sun)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;margin-top:-11px;border-radius:50%;background:var(--red);border:3px solid var(--ink);box-shadow:0 3px 0 var(--ink)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--red);border:3px solid var(--ink)}
 
 /* Recipes */
 .bar{display:flex;align-items:center;gap:12px}
@@ -212,9 +223,21 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
     <p id="fact"></p>
   </aside>
 
+  <section class="vol">
+    <div class="vol-row">
+      <label for="vol" class="vol-label">Volume de la poule</label>
+      <output id="vol-out" for="vol">100 %</output>
+    </div>
+    <div class="vol-row">
+      <svg width="22" height="22" aria-hidden="true" style="flex:none"><use href="#i-mute"/></svg>
+      <input type="range" id="vol" min="0" max="100" step="5" value="100">
+      <button class="icon-btn" id="b-test" type="button" aria-label="Écouter la poule"><svg width="22" height="22" aria-hidden="true"><use href="#i-sound"/></svg></button>
+    </div>
+    <p class="vol-hint" id="vol-hint" hidden>Sur iPhone, le volume se règle avec les boutons sur le côté du téléphone.</p>
+  </section>
+
   <div class="foot">
     <button class="btn red" id="b-recipes" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-book"/></svg>Recettes d'œufs</button>
-    <button class="icon-btn" id="b-test" type="button" aria-label="Écouter la poule"><svg width="22" height="22" aria-hidden="true"><use href="#i-sound"/></svg></button>
   </div>
 </main>
 
@@ -259,7 +282,7 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
       <button class="btn red" id="b-stop" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-mute"/></svg>Stop la poule</button>
       <button class="btn" id="b-done-recipes" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-book"/></svg>Une idée de recette ?</button>
     </div>
-    <p class="credit">Cri de poule : « Chickens demanding food », domaine public, <a href="https://commons.wikimedia.org/wiki/File:Chickens_demanding_food.ogg" target="_blank" rel="noopener">Wikimedia Commons</a></p>
+    <p class="credit">Cri de poule : « Hen lays #2 », Joseph Sardin, CC0, <a href="https://bigsoundbank.com/hen-lays-2-s0976.html" target="_blank" rel="noopener">BigSoundBank</a></p>
   </div>
 </div>
 
@@ -361,45 +384,69 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
   showFact();
 
   // ---------- Son de poule ----------
+  // Principe : au moment où l'on appuie sur une cuisson, on lance une piste
+  // « N minutes de silence + la poule ». Le téléphone la joue comme une musique,
+  // donc la poule chante à l'heure même si l'écran se verrouille ou si l'app
+  // passe en arrière-plan. Le minuteur affiché sert juste à l'écran.
+  // Volume de la poule (0 à 1), mémorisé
+  let volume = Math.min(1, Math.max(0, Number(store.get('vol', 1))));
+  const setVol = (el) => { try { if (el) el.volume = volume; } catch (e) {} };
+  const volSupported = (() => { try { const a = new Audio(); a.volume = 0.5; return Math.abs(a.volume - 0.5) < 0.01; } catch (e) { return false; } })();
+
   const audio = {
-    ctx: null, buf: null, loading: null, src: null, loopT: null, el: null, stopT: null,
-    unlock() {
-      try {
-        if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) this.ctx = new AC(); }
-        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-        if (this.ctx) { const b = this.ctx.createBuffer(1, 1, 22050); const s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0); }
-      } catch (e) {}
-      this.load();
-    },
-    load() {
-      if (this.buf || this.loading || !this.ctx) return this.loading;
-      this.loading = fetch('sons/poule.mp3').then((r) => r.arrayBuffer())
-        .then((ab) => new Promise((res, rej) => this.ctx.decodeAudioData(ab, res, rej)))
-        .then((b) => { this.buf = b; }).catch(() => { this.loading = null; });
-      return this.loading;
-    },
-    playOnce() {
-      if (this.ctx && this.buf) {
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-        const s = this.ctx.createBufferSource(); s.buffer = this.buf; s.connect(this.ctx.destination); s.start(0); this.src = s;
-        return this.buf.duration;
-      }
-      // Repli : élément audio classique
-      if (!this.el) { this.el = new Audio('sons/poule.mp3'); this.el.preload = 'auto'; }
-      this.el.currentTime = 0; const p = this.el.play(); if (p && p.catch) p.catch(() => {});
-      return 11;
-    },
-    startLoop() {
+    track: null, totalSec: 0, ringing: false, stopT: null, test: null,
+    applyVolume() { setVol(this.track); setVol(this.test); },
+    session() { try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {} },
+    // À appeler pendant le geste (clic) : démarre la piste à la bonne position
+    arm(c, offsetSec) {
+      this.session();
       this.stop();
-      const go = () => { const d = this.playOnce(); this.loopT = setTimeout(go, (d + 1.2) * 1000); };
-      go();
+      const el = new Audio('sons/minuteur-' + c.min + '.mp3');
+      el.preload = 'auto';
+      setVol(el);
+      el.addEventListener('ended', () => {
+        // La piste contient la poule 3 fois ; si on n'a pas encore appuyé sur Stop, on recommence la poule
+        if (this.track === el && this.ringing) { el.currentTime = this.totalSec; el.play().catch(() => {}); }
+      });
+      this.track = el; this.totalSec = c.min * 60; this.ringing = false;
+      if (offsetSec > 0) {
+        const seek = () => { try { el.currentTime = offsetSec; } catch (e) {} };
+        if (el.readyState >= 1) seek(); else el.addEventListener('loadedmetadata', seek, { once: true });
+      }
+      const p = el.play();
+      if (p && p.catch) p.catch(() => { toast('Touche l’écran une fois pour activer le son de la poule.'); });
+    },
+    pause() { if (this.track) this.track.pause(); },
+    ring() {
+      this.ringing = true;
+      const el = this.track;
+      if (el) {
+        // Si la piste n'est pas déjà sur la poule (petit décalage, pause…), on saute à la poule
+        if (el.paused || el.currentTime < this.totalSec - 0.3) {
+          try { el.currentTime = this.totalSec; } catch (e) {}
+          el.play().catch(() => this.ringFallback());
+        }
+      } else {
+        this.ringFallback();
+      }
+      clearTimeout(this.stopT);
       this.stopT = setTimeout(() => this.stop(), 3 * 60 * 1000); // la poule se tait seule après 3 min
     },
+    ringFallback() {
+      if (!this.test) this.test = new Audio('sons/poule.mp3');
+      this.test.loop = true; this.test.currentTime = 0; setVol(this.test);
+      this.test.play().catch(() => {});
+    },
+    playTest() {
+      this.session();
+      if (!this.test) this.test = new Audio('sons/poule.mp3');
+      this.test.loop = false; this.test.currentTime = 0; setVol(this.test);
+      return this.test.play();
+    },
     stop() {
-      clearTimeout(this.loopT); clearTimeout(this.stopT); this.loopT = null;
-      try { if (this.src) this.src.stop(); } catch (e) {}
-      this.src = null;
-      if (this.el) { this.el.pause(); }
+      clearTimeout(this.stopT); this.ringing = false;
+      if (this.track) { this.track.pause(); this.track.removeAttribute('src'); try { this.track.load(); } catch (e) {} this.track = null; }
+      if (this.test) { this.test.pause(); this.test.loop = false; }
     }
   };
 
@@ -477,8 +524,8 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
   }
 
   function start(id) {
-    audio.unlock();
     const c = byId(id);
+    audio.arm(c, 0);
     const total = c.min * 60 * 1000;
     st = { status: 'running', id: id, total: total, endAt: Date.now() + total };
     save(); nextFact(); keepAwake(); loop(); render();
@@ -486,14 +533,20 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
   }
 
   function pauseResume() {
-    audio.unlock();
-    if (st.status === 'running') { st = Object.assign({}, st, { status: 'paused', left: remaining() }); clearInterval(tickT); letSleep(); }
-    else if (st.status === 'paused') { st = Object.assign({}, st, { status: 'running', endAt: Date.now() + st.left }); keepAwake(); loop(); }
+    const c = byId(st.id);
+    if (st.status === 'running') {
+      st = Object.assign({}, st, { status: 'paused', left: remaining() });
+      clearInterval(tickT); audio.pause(); letSleep();
+    } else if (st.status === 'paused') {
+      st = Object.assign({}, st, { status: 'running', endAt: Date.now() + st.left });
+      audio.arm(c, (st.total - st.left) / 1000);
+      keepAwake(); loop();
+    }
     save(); render();
   }
 
   function cancel() {
-    clearInterval(tickT); st = { status: 'idle' }; save(); letSleep(); render();
+    clearInterval(tickT); audio.stop(); st = { status: 'idle' }; save(); letSleep(); render();
   }
 
   function finish() {
@@ -504,7 +557,7 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
     $('#done-tip').textContent = c.tip;
     $('#done').classList.add('on');
     document.title = 'Prêt ! · Cocotte';
-    audio.startLoop();
+    audio.ring();
     try { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 600]); } catch (e) {}
     $('#b-stop').focus();
   }
@@ -520,11 +573,28 @@ body.running .run-ctrl,body.paused .run-ctrl{display:grid}
   $('#b-cancel').addEventListener('click', cancel);
   $('#b-stop').addEventListener('click', () => closeDone(false));
   $('#b-done-recipes').addEventListener('click', () => closeDone(true));
+  // Réglage du volume
+  const volEl = $('#vol');
+  const showVol = () => {
+    const p = Math.round(volume * 100);
+    volEl.value = p; volEl.style.setProperty('--p', p + '%');
+    $('#vol-out').textContent = p + ' %';
+  };
+  showVol();
+  if (!volSupported) { $('#vol-hint').hidden = false; }
+  volEl.addEventListener('input', () => {
+    volume = Number(volEl.value) / 100; store.set('vol', volume); showVol(); audio.applyVolume();
+  });
+  volEl.addEventListener('change', () => {
+    // Petit cot-cot pour entendre le niveau choisi (seulement si aucun minuteur ne tourne)
+    if (st.status === 'idle' && !audio.ringing) { audio.playTest().catch(() => {}); }
+  });
+
   $('#b-test').addEventListener('click', () => {
-    audio.unlock();
-    const p = audio.load();
-    const play = () => { audio.stop(); audio.playOnce(); toast('Cot-cot ! Monte le son si tu ne l’entends pas.'); };
-    if (p && !audio.buf) p.then(play); else play();
+    if (st.status !== 'idle') { toast('La poule est déjà prête à chanter à la fin.'); return; }
+    audio.playTest()
+      .then(() => toast('Cot-cot ! Monte le volume si tu ne l’entends pas.'))
+      .catch(() => toast('Impossible de jouer le son sur ce téléphone.'));
   });
 
   document.addEventListener('visibilitychange', () => {
