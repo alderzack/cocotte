@@ -1,5 +1,5 @@
 // Cocotte — cache hors ligne
-const CACHE = 'cocotte-v3';
+const CACHE = 'cocotte-v4';
 const SHELL = [
   './',
   './index.html',
