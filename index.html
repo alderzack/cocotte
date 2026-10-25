@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cocotte</title>
+<meta name="description" content="Le minuteur à œufs qui caquette : coque, mi-mollet, mollet ou dur.">
+<meta name="theme-color" content="#FFF4D6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cocotte">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cream:#FFF4D6; --ink:#2E2A24; --ink-soft:#5C5246; --red:#B8322A; --red-hi:#D9443A;
+  --wood:#A8683A; --wood-dark:#6B3F1F; --plank:#E9B77A; --sky:#BEE7FF; --grass:#7CC95A;
+  --white:#FFFFFF; --sun:#FFD84D;
+  --shadow:0 4px 0 var(--ink);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--cream);color:var(--ink)}
+body{font-family:'Baloo 2',system-ui,sans-serif;font-weight:700;-webkit-tap-highlight-color:transparent;min-height:100dvh}
+button,a{font-family:inherit}
+button{cursor:pointer}
+.app{max-width:440px;margin:0 auto;min-height:100dvh;padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+.view{display:none;flex-direction:column;gap:14px;flex:1}
+.view.on{display:flex}
+.pill{background:var(--white);border:3px solid var(--ink);border-radius:999px;padding:3px 12px;font-size:14px}
+.btn{min-height:52px;border-radius:999px;border:3px solid var(--ink);box-shadow:var(--shadow);background:var(--white);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:700;padding:0 18px;text-decoration:none;transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn.red{background:var(--red);color:var(--white)}
+.btn svg{flex:none}
+.icon-btn{width:48px;height:48px;border-radius:50%;border:3px solid var(--ink);box-shadow:var(--shadow);background:var(--white);color:var(--ink);display:flex;align-items:center;justify-content:center;flex:none}
+.icon-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+:focus-visible{outline:3px solid #1E5FA8;outline-offset:3px}
+
+/* Header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.logo{margin:0;font-size:40px;font-weight:800;line-height:1;color:var(--red)}
+
+/* Scene */
+.scene{position:relative;height:300px;border:3px solid var(--ink);border-radius:28px;background:var(--sky);overflow:hidden}
+.scene svg.bg{position:absolute;left:0;top:0;width:100%;height:100%}
+.hen{position:absolute;left:4%;bottom:6px;width:46%;max-width:180px;transform-origin:50% 100%}
+body.running .hen{animation:bob .9s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-6px) rotate(-3deg)}}
+.sign{position:absolute;right:12px;top:70px;display:flex;flex-direction:column;align-items:center}
+.sign-board{background:var(--wood);border:3px solid var(--ink);border-radius:14px;padding:6px 14px 8px;display:flex;flex-direction:column;align-items:center;transform:rotate(3deg);box-shadow:var(--shadow);min-width:150px}
+.sign-label{font-size:14px;color:var(--cream)}
+.sign-time{font-size:52px;font-weight:800;line-height:1;color:var(--white);font-variant-numeric:tabular-nums}
+.sign-post{width:10px;height:70px;background:var(--wood-dark);border:3px solid var(--ink);border-top:0}
+.progress{position:absolute;left:14px;right:14px;bottom:12px;height:14px;border:3px solid var(--ink);border-radius:999px;background:var(--white);overflow:hidden;display:none}
+body.running .progress,body.paused .progress{display:block}
+.progress i{display:block;height:100%;width:0;background:var(--sun);border-right:3px solid var(--ink)}
+
+/* Status + controls */
+.status{margin:0;text-align:center;font-size:17px}
+.hint{margin:-6px 0 0;text-align:center;font-size:14px;font-weight:600;color:var(--ink-soft)}
+.choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.choice{border:3px solid var(--ink);border-radius:22px;box-shadow:var(--shadow);background:var(--white);color:var(--ink);padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;font-weight:700}
+.choice:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.choice.on{background:var(--red);color:var(--white)}
+.choice svg{width:48px;height:48px}
+.choice .n{font-size:14px;line-height:1.1}
+.choice .m{font-size:13px;font-weight:600}
+.run-ctrl{display:none;grid-template-columns:1fr 1fr;gap:10px}
+body.running .run-ctrl,body.paused .run-ctrl{display:grid}
+
+/* Fact */
+.fact{background:var(--plank);border:3px solid var(--ink);border-radius:16px;padding:10px 16px;transform:rotate(-1deg);box-shadow:var(--shadow)}
+.fact h2{margin:0;font-size:15px;font-weight:800}
+.fact p{margin:0;font-size:15px;font-weight:600;line-height:1.35}
+
+.foot{margin-top:auto;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+
+/* Recipes */
+.bar{display:flex;align-items:center;gap:12px}
+.bar h1{margin:0;font-size:30px;font-weight:800;line-height:1.05;color:var(--red)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:44px;padding:0 16px;border-radius:999px;border:3px solid var(--ink);background:var(--white);color:var(--ink);font-size:15px;font-weight:700}
+.chip.on{background:var(--red);color:var(--white)}
+.list{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--white);border:3px solid var(--ink);border-radius:22px;box-shadow:var(--shadow);padding:10px 14px 10px 10px;display:flex;align-items:center;gap:12px;text-align:left;color:var(--ink);width:100%}
+.card:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.dot{width:60px;height:60px;flex:none;border-radius:50%;border:3px solid var(--ink);display:flex;align-items:center;justify-content:center}
+.card .t{display:flex;flex-direction:column;min-width:0;flex:1}
+.card .t b{font-size:19px;font-weight:800;line-height:1.15}
+.card .t span{font-size:14px;font-weight:600;color:var(--ink-soft)}
+
+.recipe-head{background:var(--white);border:3px solid var(--ink);border-radius:24px;box-shadow:var(--shadow);padding:14px 16px;display:flex;gap:14px;align-items:center}
+.recipe-head h2{margin:0;font-size:26px;font-weight:800;line-height:1.1}
+.recipe-head p{margin:2px 0 0;font-size:15px;font-weight:600;color:var(--ink-soft)}
+.box{background:var(--white);border:3px solid var(--ink);border-radius:20px;padding:12px 16px}
+.box h3{margin:0 0 6px;font-size:18px;font-weight:800;color:var(--red)}
+.box ul,.box ol{margin:0;padding-left:22px;font-weight:600;font-size:16px;line-height:1.45}
+.box li+li{margin-top:4px}
+
+/* Done overlay */
+.done{position:fixed;inset:0;background:var(--cream);z-index:10;overflow:auto;display:none}
+.done.on{display:block}
+.done .app{gap:12px}
+.rays-wrap{position:relative;height:290px}
+.rays{position:absolute;left:50%;top:0;width:290px;height:290px;margin-left:-145px;border-radius:50%;background:repeating-conic-gradient(from 0deg,#FFE08A 0deg 10deg,var(--cream) 10deg 20deg);animation:spin 18s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.done .hen-big{position:absolute;left:50%;top:26px;width:210px;margin-left:-118px;transform-origin:50% 100%;animation:cackle .35s ease-in-out infinite}
+@keyframes cackle{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) translateY(-4px)}}
+.bubble{position:absolute;right:0;top:6px;background:var(--white);border:3px solid var(--ink);border-radius:24px;box-shadow:var(--shadow);padding:6px 14px;transform:rotate(6deg);font-size:24px;font-weight:800;line-height:1.05;color:var(--red);text-align:center}
+.done h1{margin:0;text-align:center;font-size:30px;font-weight:800;line-height:1.1}
+.tip{background:var(--white);border:3px solid var(--ink);border-radius:20px;padding:10px 14px;display:flex;align-items:center;gap:12px}
+.tip p{margin:0;font-size:15px;font-weight:600;line-height:1.3}
+.done .actions{margin-top:auto;display:flex;flex-direction:column;gap:12px}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(120px);background:var(--ink);color:var(--cream);border-radius:999px;padding:10px 18px;font-size:15px;transition:transform .25s;z-index:20;max-width:90vw;text-align:center}
+.toast.on{transform:translateX(-50%) translateY(0)}
+.credit{text-align:center;font-size:12px;font-weight:600;color:var(--ink-soft);margin:4px 0 0}
+.credit a{color:var(--ink-soft)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:360px){.sign-time{font-size:44px}.sign-board{min-width:128px}.choice .n{font-size:12px}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M12 9v4l2 2M9 2h6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M22 9l-6 6M16 9l6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.5C9 7 6 10.5 6 14a6 6 0 0 0 12 0c0-3.5-3-7-6-11.5z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plate" viewBox="0 0 40 40"><ellipse cx="20" cy="26" rx="17" ry="7" fill="#fff" stroke="#2E2A24" stroke-width="2.5"/><path d="M20 6C13 6 10 16 10 21c0 6 4 9 10 9s10-3 10-9c0-5-3-15-10-15z" fill="#fff" stroke="#2E2A24" stroke-width="2.5"/><circle cx="20" cy="22" r="5.5" fill="#FFB627" stroke="#2E2A24" stroke-width="2"/></symbol>
+    <symbol id="hen" viewBox="30 100 168 192">
+      <path d="M88 270 L80 288 M110 270 L116 288" stroke="#F08C2E" stroke-width="5" stroke-linecap="round"/>
+      <path d="M96 140 C60 140 44 176 50 210 C56 246 84 272 112 272 C146 272 164 244 160 210 L176 196 C178 184 168 176 160 182 L150 190 C146 160 128 140 96 140 Z" fill="#fff" stroke="#2E2A24" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M80 136 Q82 116 94 126 Q100 110 110 124 Q122 116 116 140 Z" fill="#D9443A" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M60 172 L40 180 L60 188 Z" fill="#F7A531" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M58 192 Q50 206 62 206 Q66 198 62 190 Z" fill="#D9443A" stroke="#2E2A24" stroke-width="2.5"/>
+      <ellipse cx="78" cy="166" rx="9" ry="11" fill="#2E2A24"/>
+      <circle cx="81" cy="162" r="3.5" fill="#fff"/>
+      <ellipse cx="68" cy="186" rx="7" ry="4" fill="#FFB3A7"/>
+      <path d="M96 204 C110 196 136 200 140 216 C132 236 104 236 96 222 Z" fill="#F4EDE0" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="hen-shout" viewBox="30 100 168 200">
+      <path d="M150 190 C170 166 190 160 194 150 C196 168 182 186 160 200 Z" fill="#F4EDE0" stroke="#2E2A24" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M88 270 L80 290 M110 270 L116 290 M72 292 L88 290 M108 292 L124 290" stroke="#F08C2E" stroke-width="5" stroke-linecap="round"/>
+      <path d="M96 140 C60 140 44 176 50 210 C56 246 84 272 112 272 C146 272 164 244 160 210 L176 196 C178 184 168 176 160 182 L150 190 C146 160 128 140 96 140 Z" fill="#fff" stroke="#2E2A24" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M80 136 Q82 116 94 126 Q100 110 110 124 Q122 116 116 140 Z" fill="#D9443A" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M60 170 L36 164 L58 178 Z" fill="#F7A531" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M58 184 L38 194 L60 190 Z" fill="#F7A531" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M56 178 L44 182 L56 184 Z" fill="#B8322A"/>
+      <path d="M60 196 Q52 210 64 210 Q68 202 64 194 Z" fill="#D9443A" stroke="#2E2A24" stroke-width="2.5"/>
+      <ellipse cx="80" cy="160" rx="10" ry="12" fill="#2E2A24"/>
+      <circle cx="83" cy="156" r="4" fill="#fff"/>
+      <path d="M68 144 L88 148" stroke="#2E2A24" stroke-width="3" stroke-linecap="round"/>
+      <ellipse cx="72" cy="186" rx="7" ry="4" fill="#FFB3A7"/>
+      <path d="M96 210 C110 200 132 202 140 214 C132 232 106 234 96 222 Z" fill="#F4EDE0" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M36 140 L28 132 M40 128 L36 118 M50 124 L52 112" stroke="#2E2A24" stroke-width="3" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- MINUTEUR -->
+<main class="app view on" id="v-home">
+  <header class="top">
+    <h1 class="logo">Cocotte</h1>
+    <span class="pill">Cot-cot timer</span>
+  </header>
+
+  <section class="scene" aria-label="Minuteur">
+    <svg class="bg" viewBox="0 0 344 294" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <circle cx="292" cy="44" r="24" fill="#FFD84D" stroke="#2E2A24" stroke-width="3"/>
+      <path d="M30 60 a14 14 0 0 1 22 -12 a18 18 0 0 1 32 4 a12 12 0 0 1 4 22 h-52 a12 12 0 0 1 -6 -14 z" fill="#fff" stroke="#2E2A24" stroke-width="3"/>
+      <path d="M-10 230 C60 190 140 196 200 214 C260 232 310 206 360 196 L360 300 L-10 300 Z" fill="#7CC95A" stroke="#2E2A24" stroke-width="3"/>
+      <path d="M234 196 L262 172 L290 196 L290 230 L234 230 Z" fill="#D9443A" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="254" y="208" width="16" height="22" fill="#FFF4D6" stroke="#2E2A24" stroke-width="2.5"/>
+      <path d="M20 262 V240 M50 262 V240 M80 262 V240 M10 248 H90" stroke="#A8683A" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+    <svg class="hen" viewBox="0 0 168 192" aria-hidden="true"><use href="#hen"/></svg>
+    <div class="sign">
+      <div class="sign-board">
+        <span class="sign-label" id="sign-label">Prête à cuire</span>
+        <span class="sign-time" id="sign-time" role="timer" aria-live="off">--:--</span>
+      </div>
+      <div class="sign-post"></div>
+    </div>
+    <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+  </section>
+
+  <p class="status" id="status" aria-live="polite">Choisis ta cuisson, ça démarre tout de suite.</p>
+
+  <div class="choices" id="choices"></div>
+  <p class="hint">Plonge l'œuf dans l'eau qui bout déjà, puis appuie.</p>
+
+  <div class="run-ctrl">
+    <button class="btn" id="b-pause" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-pause"/></svg><span>Pause</span></button>
+    <button class="btn" id="b-cancel" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-x"/></svg>Annuler</button>
+  </div>
+
+  <aside class="fact">
+    <h2>Le savais-tu ?</h2>
+    <p id="fact"></p>
+  </aside>
+
+  <div class="foot">
+    <button class="btn red" id="b-recipes" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-book"/></svg>Recettes d'œufs</button>
+    <button class="icon-btn" id="b-test" type="button" aria-label="Écouter la poule"><svg width="22" height="22" aria-hidden="true"><use href="#i-sound"/></svg></button>
+  </div>
+</main>
+
+<!-- RECETTES -->
+<main class="app view" id="v-recipes">
+  <div class="bar">
+    <button class="icon-btn" type="button" data-go="home" aria-label="Retour au minuteur"><svg width="22" height="22" aria-hidden="true"><use href="#i-back"/></svg></button>
+    <h1>Recettes d'œufs</h1>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="list" id="list"></div>
+</main>
+
+<!-- RECETTE -->
+<main class="app view" id="v-recipe">
+  <div class="bar">
+    <button class="icon-btn" type="button" data-go="recipes" aria-label="Retour aux recettes"><svg width="22" height="22" aria-hidden="true"><use href="#i-back"/></svg></button>
+    <h1>Recette</h1>
+  </div>
+  <div class="recipe-head">
+    <span class="dot" id="r-dot"><svg width="40" height="40" aria-hidden="true"><use href="#i-plate"/></svg></span>
+    <div><h2 id="r-name"></h2><p id="r-meta"></p></div>
+  </div>
+  <button class="btn red" id="r-timer" type="button" hidden><svg width="20" height="20" aria-hidden="true"><use href="#i-timer"/></svg><span></span></button>
+  <section class="box"><h3>Ingrédients</h3><ul id="r-ing"></ul></section>
+  <section class="box"><h3>Étapes</h3><ol id="r-steps"></ol></section>
+</main>
+
+<!-- ŒUF PRÊT -->
+<div class="done" id="done" role="dialog" aria-modal="true" aria-labelledby="done-title">
+  <div class="app">
+    <span class="pill" style="align-self:center">Minuteur terminé</span>
+    <div class="rays-wrap">
+      <div class="rays"></div>
+      <svg class="hen-big" viewBox="0 0 168 200" aria-hidden="true"><use href="#hen-shout"/></svg>
+      <div class="bubble">COT-COT-<br>CODÊÊT !</div>
+    </div>
+    <h1 id="done-title">Ton œuf est prêt !</h1>
+    <div class="tip"><svg width="34" height="34" style="color:#1E5FA8;flex:none" aria-hidden="true"><use href="#i-drop"/></svg><p id="done-tip"></p></div>
+    <aside class="fact"><h2>Le savais-tu ?</h2><p id="done-fact"></p></aside>
+    <div class="actions">
+      <button class="btn red" id="b-stop" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-mute"/></svg>Stop la poule</button>
+      <button class="btn" id="b-done-recipes" type="button"><svg width="20" height="20" aria-hidden="true"><use href="#i-book"/></svg>Une idée de recette ?</button>
+    </div>
+    <p class="credit">Cri de poule : « Chickens demanding food », domaine public, <a href="https://commons.wikimedia.org/wiki/File:Chickens_demanding_food.ogg" target="_blank" rel="noopener">Wikimedia Commons</a></p>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Données ----------
+  const CUISSONS = [
+    { id: 'coque',    nom: 'Coque',     phrase: 'à la coque', min: 3,  yolk: '#FF9F1C', r: 11,
+      tip: "Sers-le tout de suite dans un coquetier, avec des mouillettes." },
+    { id: 'mimollet', nom: 'Mi-mollet', phrase: 'mi-mollet',  min: 5,  yolk: '#FFAA33', r: 11,
+      tip: "Plonge-le 1 minute dans l'eau froide pour stopper la cuisson, puis écale-le délicatement." },
+    { id: 'mollet',   nom: 'Mollet',    phrase: 'mollet',     min: 6,  yolk: '#FFBE45', r: 11,
+      tip: "Plonge-le 1 minute dans l'eau froide : il arrête de cuire et s'écale mieux." },
+    { id: 'dur',      nom: 'Dur',       phrase: 'dur',        min: 10, yolk: '#FFDC5E', r: 10,
+      tip: "Laisse-le quelques minutes dans l'eau froide : il s'écalera bien plus facilement." }
+  ];
+
+  const FACTS = [
+    "Une poule pondeuse pond environ 300 œufs par an. Presque un par jour !",
+    "La couleur de la coquille dépend de la race de la poule, pas de ce qu'elle mange.",
+    "Un œuf frais coule au fond de l'eau. Un vieux flotte : sa poche d'air a grandi avec le temps.",
+    "Fais tourner un œuf sur la table : s'il tourne vite et longtemps, il est dur. S'il vacille, il est cru.",
+    "La coquille d'un œuf est percée de 7 000 à 17 000 pores minuscules : l'air passe au travers.",
+    "La couleur du jaune dépend surtout de ce que mange la poule : avec du maïs ou de l'herbe, il est plus orangé.",
+    "Les petits cordons blancs dans l'œuf s'appellent les chalazes : ils maintiennent le jaune au centre.",
+    "Il faut environ 24 à 26 heures à une poule pour fabriquer un œuf.",
+    "Une poule n'a pas besoin de coq pour pondre. Sans coq, ses œufs ne sont simplement pas fécondés.",
+    "L'œuf d'autruche pèse environ 1,4 kg : l'équivalent d'une vingtaine d'œufs de poule.",
+    "Le cerne vert-gris autour d'un jaune trop cuit, c'est du sulfure de fer. Il apparaît quand l'œuf cuit trop longtemps.",
+    "Les œufs très frais sont plus durs à écaler : leur blanc colle davantage à la membrane.",
+    "Le blanc d'œuf est composé de près de 90 % d'eau.",
+    "Toutes les matières grasses de l'œuf se trouvent dans le jaune. Le blanc n'en contient presque pas.",
+    "Le mot « œuf » vient du latin ovum.",
+    "Les poules descendent des dinosaures, comme tous les oiseaux.",
+    "Pendant la couvaison, la poule retourne ses œufs plusieurs fois par jour pour que le poussin ne colle pas à la coquille.",
+    "Il faut 21 jours de couvaison pour qu'un poussin sorte de son œuf.",
+    "On sépare plus facilement le blanc du jaune quand l'œuf sort du frigo.",
+    "En montagne, l'eau bout à moins de 100 °C : il faut cuire les œufs un peu plus longtemps.",
+    "La poche d'air de l'œuf se trouve du côté le plus large.",
+    "Dans l'Union européenne, le premier chiffre tamponné sur l'œuf indique l'élevage : 0 bio, 1 plein air, 2 au sol, 3 en cage."
+  ];
+
+  const RECETTES = [
+    { id: 'coque', nom: 'Œuf coque et mouillettes', temps: '5 min', niveau: 'Facile', tint: '#FFE08A', tags: ['Rapide'], timer: 'coque',
+      ing: ['1 ou 2 œufs bien frais', '1 tranche de pain', 'Beurre', 'Fleur de sel'],
+      steps: ["Porte une casserole d'eau à ébullition.", "Plonge l'œuf délicatement avec une cuillère et lance le minuteur « Coque ».", "Pendant ce temps, toaste et beurre le pain, puis coupe-le en bâtonnets.", "Pose l'œuf dans un coquetier, décalotte-le et sale. Trempe !"] },
+    { id: 'cocotte', nom: 'Œufs cocotte', temps: '15 min', niveau: 'Facile', tint: '#F4C7A1', tags: ['Brunch'], timer: null,
+      ing: ['2 œufs', '2 c. à soupe de crème', 'Un peu de beurre', 'Sel, poivre', 'Ciboulette'],
+      steps: ["Préchauffe le four à 180 °C.", "Beurre deux ramequins et mets une cuillère de crème au fond de chacun.", "Casse un œuf dans chaque ramequin, sale et poivre.", "Pose les ramequins dans un plat rempli d'eau chaude à mi-hauteur.", "Enfourne 10 à 12 minutes : le blanc doit être pris, le jaune encore coulant.", "Parsème de ciboulette et sers avec du pain grillé."] },
+    { id: 'omelette', nom: 'Omelette baveuse', temps: '6 min', niveau: 'Facile', tint: '#BEE7FF', tags: ['Rapide'], timer: null,
+      ing: ['3 œufs', '1 noisette de beurre', 'Sel, poivre', 'Herbes ou fromage (facultatif)'],
+      steps: ["Bats les œufs à la fourchette avec le sel et le poivre.", "Fais mousser le beurre dans une poêle à feu moyen.", "Verse les œufs et ramène les bords vers le centre avec une spatule.", "Quand le dessus est encore crémeux, plie l'omelette en deux et glisse-la dans l'assiette."] },
+    { id: 'brouilles', nom: 'Œufs brouillés crémeux', temps: '8 min', niveau: 'Facile', tint: '#CDEBB8', tags: ['Rapide', 'Brunch'], timer: null,
+      ing: ['3 œufs', '1 noix de beurre', '1 c. à soupe de crème (facultatif)', 'Sel, poivre'],
+      steps: ["Casse les œufs dans une casserole froide avec le beurre.", "Mets sur feu doux et remue sans arrêt avec une spatule.", "Retire du feu de temps en temps pour que ça reste crémeux.", "Stoppe quand c'est encore un peu coulant : ça finit de cuire hors du feu. Ajoute la crème, sale, poivre."] },
+    { id: 'mimosa', nom: 'Œufs mimosa', temps: '25 min', niveau: 'Facile', tint: '#FFD84D', tags: ['Apéro'], timer: 'dur',
+      ing: ['6 œufs', '3 c. à soupe de mayonnaise', '1 c. à café de moutarde', 'Sel, poivre', 'Persil ou ciboulette'],
+      steps: ["Cuis les œufs durs : lance le minuteur « Dur ».", "Refroidis-les dans l'eau froide, écale-les et coupe-les en deux dans la longueur.", "Retire les jaunes et écrase-les avec la mayonnaise, la moutarde, le sel et le poivre.", "Remplis les blancs avec ce mélange.", "Émiette un jaune par-dessus pour l'effet « mimosa » et ajoute les herbes."] },
+    { id: 'mayo', nom: 'Œuf mayo', temps: '15 min', niveau: 'Facile', tint: '#FBE7B5', tags: ['Apéro'], timer: 'dur',
+      ing: ['4 œufs', 'Mayonnaise maison ou du commerce', 'Salade verte', 'Paprika ou ciboulette'],
+      steps: ["Cuis les œufs durs : lance le minuteur « Dur ».", "Refroidis-les dans l'eau froide puis écale-les.", "Coupe-les en deux et pose-les sur un lit de salade.", "Nappe généreusement de mayonnaise et saupoudre de paprika ou de ciboulette."] },
+    { id: 'poche', nom: 'Œuf poché', temps: '10 min', niveau: 'Moyen', tint: '#E9D3F5', tags: ['Brunch'], timer: null,
+      ing: ['1 œuf très frais', '1 c. à soupe de vinaigre blanc', 'Sel, poivre'],
+      steps: ["Fais frémir de l'eau sans sel avec le vinaigre (pas de gros bouillons).", "Casse l'œuf dans une petite tasse.", "Crée un tourbillon dans l'eau avec une cuillère et fais glisser l'œuf au centre.", "Laisse cuire 3 minutes, puis sors-le avec une écumoire et pose-le sur du papier absorbant."] },
+    { id: 'shakshuka', nom: 'Shakshuka', temps: '30 min', niveau: 'Moyen', tint: '#F7B6A8', tags: ['Brunch'], timer: null,
+      ing: ['4 œufs', '1 oignon', '1 poivron rouge', '1 boîte de tomates concassées', '1 gousse d’ail', '1 c. à café de cumin, 1 de paprika', "Huile d'olive, sel, coriandre"],
+      steps: ["Fais revenir l'oignon et le poivron émincés dans l'huile 8 minutes.", "Ajoute l'ail, le cumin et le paprika, puis les tomates. Laisse mijoter 10 minutes.", "Creuse 4 petits puits dans la sauce et casse un œuf dans chacun.", "Couvre et cuis 6 à 8 minutes, jusqu'à ce que les blancs soient pris.", "Parsème de coriandre et sers avec du pain."] }
+  ];
+
+  // Typographie française : espaces insécables avant : ! ? ; » et après «
+  const fr = (s) => s.replace(/ ([:!?;»])/g, ' $1').replace(/« /g, '« ');
+  FACTS.forEach((f, i) => { FACTS[i] = fr(f); });
+  CUISSONS.forEach((c) => { c.tip = fr(c.tip); });
+  RECETTES.forEach((r) => { r.ing = r.ing.map(fr); r.steps = r.steps.map(fr); });
+
+  // ---------- Utilitaires ----------
+  const $ = (s) => document.querySelector(s);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('cocotte.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('cocotte.' + k, JSON.stringify(v)); } catch (e) {} },
+    del(k) { try { localStorage.removeItem('cocotte.' + k); } catch (e) {} }
+  };
+  const fmt = (ms) => {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  };
+  const byId = (id) => CUISSONS.find((c) => c.id === id);
+  let toastT;
+  const toast = (msg) => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); };
+
+  // ---------- Fun facts : un nouveau à chaque utilisation ----------
+  let factIdx = store.get('fact', Math.floor(Math.random() * FACTS.length)) % FACTS.length;
+  const showFact = () => { $('#fact').textContent = FACTS[factIdx]; $('#done-fact').textContent = FACTS[factIdx]; };
+  const nextFact = () => { factIdx = (factIdx + 1) % FACTS.length; store.set('fact', factIdx); showFact(); };
+  showFact();
+
+  // ---------- Son de poule ----------
+  const audio = {
+    ctx: null, buf: null, loading: null, src: null, loopT: null, el: null, stopT: null,
+    unlock() {
+      try {
+        if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) this.ctx = new AC(); }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        if (this.ctx) { const b = this.ctx.createBuffer(1, 1, 22050); const s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0); }
+      } catch (e) {}
+      this.load();
+    },
+    load() {
+      if (this.buf || this.loading || !this.ctx) return this.loading;
+      this.loading = fetch('sons/poule.mp3').then((r) => r.arrayBuffer())
+        .then((ab) => new Promise((res, rej) => this.ctx.decodeAudioData(ab, res, rej)))
+        .then((b) => { this.buf = b; }).catch(() => { this.loading = null; });
+      return this.loading;
+    },
+    playOnce() {
+      if (this.ctx && this.buf) {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const s = this.ctx.createBufferSource(); s.buffer = this.buf; s.connect(this.ctx.destination); s.start(0); this.src = s;
+        return this.buf.duration;
+      }
+      // Repli : élément audio classique
+      if (!this.el) { this.el = new Audio('sons/poule.mp3'); this.el.preload = 'auto'; }
+      this.el.currentTime = 0; const p = this.el.play(); if (p && p.catch) p.catch(() => {});
+      return 11;
+    },
+    startLoop() {
+      this.stop();
+      const go = () => { const d = this.playOnce(); this.loopT = setTimeout(go, (d + 1.2) * 1000); };
+      go();
+      this.stopT = setTimeout(() => this.stop(), 3 * 60 * 1000); // la poule se tait seule après 3 min
+    },
+    stop() {
+      clearTimeout(this.loopT); clearTimeout(this.stopT); this.loopT = null;
+      try { if (this.src) this.src.stop(); } catch (e) {}
+      this.src = null;
+      if (this.el) { this.el.pause(); }
+    }
+  };
+
+  // ---------- Écran allumé pendant la cuisson ----------
+  let wakeLock = null;
+  const keepAwake = async () => { try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {} };
+  const letSleep = () => { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; };
+
+  // ---------- Minuteur ----------
+  // state: { status: 'idle'|'running'|'paused', id, total, endAt, left }
+  let st = store.get('timer', { status: 'idle' });
+  let tickT = null;
+
+  const choicesEl = $('#choices');
+  CUISSONS.forEach((c) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'choice'; b.dataset.id = c.id;
+    b.setAttribute('aria-label', c.nom + ', ' + c.min + ' minutes');
+    b.innerHTML =
+      '<svg viewBox="0 0 64 64" aria-hidden="true">' +
+      '<path d="M6 44 Q32 62 58 44 L54 52 Q32 66 10 52 Z" fill="#E0B455" stroke="#2E2A24" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path d="M32 4 C18 4 12 24 12 34 C12 46 20 52 32 52 C44 52 52 46 52 34 C52 24 46 4 32 4 Z" fill="#fff" stroke="#2E2A24" stroke-width="3"/>' +
+      '<circle cx="32" cy="34" r="' + c.r + '" fill="' + c.yolk + '" stroke="#2E2A24" stroke-width="2.5"/>' +
+      '<path d="M4 46 Q32 58 60 46" fill="none" stroke="#C8962F" stroke-width="3" stroke-linecap="round"/></svg>' +
+      '<span class="n">' + c.nom + '</span><span class="m">' + c.min + ' min</span>';
+    b.addEventListener('click', () => start(c.id));
+    choicesEl.appendChild(b);
+  });
+
+  function remaining() {
+    if (st.status === 'running') return st.endAt - Date.now();
+    if (st.status === 'paused') return st.left;
+    return 0;
+  }
+
+  function render() {
+    const c = st.id ? byId(st.id) : null;
+    document.body.classList.toggle('running', st.status === 'running');
+    document.body.classList.toggle('paused', st.status === 'paused');
+    choicesEl.querySelectorAll('.choice').forEach((b) => {
+      const on = st.status !== 'idle' && b.dataset.id === st.id;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    const left = remaining();
+    if (st.status === 'idle') {
+      $('#sign-label').textContent = 'Prête à cuire';
+      $('#sign-time').textContent = '--:--';
+      $('#status').textContent = 'Choisis ta cuisson, ça démarre tout de suite.';
+      document.title = 'Cocotte';
+    } else {
+      $('#sign-label').textContent = c.nom + (st.status === 'paused' ? ' · en pause' : ' en cours');
+      $('#sign-time').textContent = fmt(left);
+      $('#status').textContent = st.status === 'paused' ? 'En pause. La poule attend.' : 'Ça mijote… garde l’app ouverte pour entendre la poule.';
+      $('#bar').style.width = Math.min(100, Math.max(0, (1 - left / st.total) * 100)) + '%';
+      document.title = fmt(left) + ' · ' + c.nom + ' · Cocotte';
+      const pb = $('#b-pause');
+      pb.querySelector('span').textContent = st.status === 'paused' ? 'Reprendre' : 'Pause';
+      pb.querySelector('use').setAttribute('href', st.status === 'paused' ? '#i-play' : '#i-pause');
+    }
+  }
+
+  function save() { if (st.status === 'idle') store.del('timer'); else store.set('timer', st); }
+
+  function loop() {
+    clearInterval(tickT);
+    if (st.status !== 'running') return;
+    tickT = setInterval(tick, 250);
+    tick();
+  }
+
+  function tick() {
+    if (st.status !== 'running') return;
+    if (remaining() <= 0) { finish(); return; }
+    render();
+  }
+
+  function start(id) {
+    audio.unlock();
+    const c = byId(id);
+    const total = c.min * 60 * 1000;
+    st = { status: 'running', id: id, total: total, endAt: Date.now() + total };
+    save(); nextFact(); keepAwake(); loop(); render();
+    toast(c.nom + ' : ' + c.min + ' min, c’est parti !');
+  }
+
+  function pauseResume() {
+    audio.unlock();
+    if (st.status === 'running') { st = Object.assign({}, st, { status: 'paused', left: remaining() }); clearInterval(tickT); letSleep(); }
+    else if (st.status === 'paused') { st = Object.assign({}, st, { status: 'running', endAt: Date.now() + st.left }); keepAwake(); loop(); }
+    save(); render();
+  }
+
+  function cancel() {
+    clearInterval(tickT); st = { status: 'idle' }; save(); letSleep(); render();
+  }
+
+  function finish() {
+    const c = byId(st.id);
+    clearInterval(tickT);
+    st = { status: 'idle' }; save(); render();
+    $('#done-title').textContent = 'Ton œuf ' + c.phrase + ' est prêt !';
+    $('#done-tip').textContent = c.tip;
+    $('#done').classList.add('on');
+    document.title = 'Prêt ! · Cocotte';
+    audio.startLoop();
+    try { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 600]); } catch (e) {}
+    $('#b-stop').focus();
+  }
+
+  function closeDone(goRecipes) {
+    audio.stop(); letSleep();
+    $('#done').classList.remove('on');
+    document.title = 'Cocotte';
+    if (goRecipes) show('recipes');
+  }
+
+  $('#b-pause').addEventListener('click', pauseResume);
+  $('#b-cancel').addEventListener('click', cancel);
+  $('#b-stop').addEventListener('click', () => closeDone(false));
+  $('#b-done-recipes').addEventListener('click', () => closeDone(true));
+  $('#b-test').addEventListener('click', () => {
+    audio.unlock();
+    const p = audio.load();
+    const play = () => { audio.stop(); audio.playOnce(); toast('Cot-cot ! Monte le son si tu ne l’entends pas.'); };
+    if (p && !audio.buf) p.then(play); else play();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (st.status === 'running') { keepAwake(); tick(); }
+    }
+  });
+
+  // Reprise après rechargement
+  if (st.status === 'running' && remaining() <= 0) { finish(); }
+  else { if (st.status === 'running') keepAwake(); loop(); render(); }
+
+  // ---------- Navigation ----------
+  const views = { home: '#v-home', recipes: '#v-recipes', recipe: '#v-recipe' };
+  function show(name) {
+    Object.entries(views).forEach(([k, sel]) => $(sel).classList.toggle('on', k === name));
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => show(b.dataset.go)));
+  $('#b-recipes').addEventListener('click', () => show('recipes'));
+
+  // ---------- Recettes ----------
+  let filtre = 'Tout';
+  const FILTRES = ['Tout', 'Rapide', 'Brunch', 'Apéro'];
+  function renderRecipes() {
+    $('#chips').innerHTML = '';
+    FILTRES.forEach((f) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip' + (f === filtre ? ' on' : ''); b.textContent = f;
+      b.setAttribute('aria-pressed', f === filtre ? 'true' : 'false');
+      b.addEventListener('click', () => { filtre = f; renderRecipes(); });
+      $('#chips').appendChild(b);
+    });
+    $('#list').innerHTML = '';
+    RECETTES.filter((r) => filtre === 'Tout' || r.tags.includes(filtre)).forEach((r) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'card';
+      b.innerHTML = '<span class="dot" style="background:' + r.tint + '"><svg width="40" height="40" aria-hidden="true"><use href="#i-plate"/></svg></span>' +
+        '<span class="t"><b></b><span></span></span><svg width="20" height="20" style="flex:none" aria-hidden="true"><use href="#i-chev"/></svg>';
+      b.querySelector('b').textContent = r.nom;
+      b.querySelector('.t span').textContent = r.temps + ' · ' + r.niveau;
+      b.addEventListener('click', () => openRecipe(r));
+      $('#list').appendChild(b);
+    });
+  }
+  function openRecipe(r) {
+    $('#r-name').textContent = r.nom;
+    $('#r-meta').textContent = r.temps + ' · ' + r.niveau;
+    $('#r-dot').style.background = r.tint;
+    $('#r-ing').innerHTML = ''; r.ing.forEach((x) => { const li = document.createElement('li'); li.textContent = x; $('#r-ing').appendChild(li); });
+    $('#r-steps').innerHTML = ''; r.steps.forEach((x) => { const li = document.createElement('li'); li.textContent = x; $('#r-steps').appendChild(li); });
+    const tb = $('#r-timer');
+    if (r.timer) {
+      const c = byId(r.timer);
+      tb.hidden = false; tb.querySelector('span').textContent = 'Lancer le minuteur « ' + c.nom + ' » (' + c.min + ' min)';
+      tb.onclick = () => { start(c.id); show('home'); };
+    } else { tb.hidden = true; tb.onclick = null; }
+    show('recipe');
+  }
+  renderRecipes();
+
+  // ---------- Hors ligne ----------
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+})();
+</script>
+</body>
+</html>
